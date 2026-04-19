@@ -85,6 +85,8 @@ def _send_email_sync(
     app_password: str,
     recipient: str,
 ) -> bool:
+    recipients = [r.strip() for r in recipient.split(",") if r.strip()]
+
     if isinstance(event_or_msg, TicketEvent):
         subject = f"🏏 RCB Tickets Available: {event_or_msg.match_title}"
         body = format_message(event_or_msg)
@@ -94,7 +96,7 @@ def _send_email_sync(
 
     msg = MIMEMultipart()
     msg["From"] = sender
-    msg["To"] = recipient
+    msg["To"] = ", ".join(recipients)
     msg["Subject"] = subject
     msg.attach(MIMEText(body, "plain"))
 
