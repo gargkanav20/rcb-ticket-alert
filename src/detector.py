@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 from datetime import datetime
@@ -122,3 +123,39 @@ async def fetch_from_playwright() -> list[TicketEvent]:
     except Exception as e:
         logger.warning(f"Playwright detection failed: {e}")
         return []
+
+
+def merge_events(
+    api_events: list[TicketEvent],
+    playwright_events: list[TicketEvent],
+) -> list[TicketEvent]:
+    merged: dict[str, TicketEvent] = {}
+
+    for event in api_events:
+        merged[event.key] = event
+
+    for event in playwright_events:
+        if event.key not in merged:
+            merged[event.key] = event
+
+    return list(merged.values())
+
+
+async def detect_tickets() -> tuple[list[TicketEvent], list[str]]:
+    errors = []
+
+    api_task = asyncio.create_task(fetch_from_api())
+    pw_task = asyncio.create_task(fetch_from_playwright())
+
+    api_events, pw_events = await asyncio.gather(api_task, pw_task)
+
+    if not api_events:
+        logger.warning("API source returned no events")
+    if not pw_events:
+        logger.warning("Playwright source returned no events")
+
+    if not api_events and not pw_events:
+        errors.append("Both API and Playwright detection returned no results")
+
+    events = merge_events(api_events or [], pw_events or [])
+    return events, errors

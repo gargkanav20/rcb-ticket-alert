@@ -1,7 +1,7 @@
 import pytest
 import httpx
 import respx
-from src.detector import fetch_from_api
+from src.detector import fetch_from_api, merge_events
 from src.models import TicketEvent
 
 
@@ -106,3 +106,48 @@ async def test_fetch_from_playwright_returns_empty_on_no_events():
     from src.detector import _parse_playwright_html
     events = _parse_playwright_html("<html><body>No events</body></html>")
     assert events == []
+
+
+def test_merge_events_deduplicates_by_key():
+    api_event = TicketEvent(
+        match_title="RCB vs CSK", date="2026-05-10",
+        venue="Chinnaswamy", ticket_url="https://example.com/api",
+        status="available",
+    )
+    playwright_event = TicketEvent(
+        match_title="RCB vs CSK", date="2026-05-10",
+        venue="M. Chinnaswamy Stadium", ticket_url="https://example.com/pw",
+        status="available",
+    )
+    merged = merge_events([api_event], [playwright_event])
+    assert len(merged) == 1
+    assert merged[0].ticket_url == "https://example.com/api"
+
+
+def test_merge_events_includes_unique_from_both():
+    api_event = TicketEvent(
+        match_title="RCB vs CSK", date="2026-05-10",
+        venue="Chinnaswamy", ticket_url="https://example.com",
+        status="available",
+    )
+    pw_event = TicketEvent(
+        match_title="RCB vs MI", date="2026-05-15",
+        venue="Chinnaswamy", ticket_url="https://example.com",
+        status="sold_out",
+    )
+    merged = merge_events([api_event], [pw_event])
+    assert len(merged) == 2
+
+
+def test_merge_events_handles_empty_lists():
+    assert merge_events([], []) == []
+
+
+def test_merge_events_one_source_empty():
+    event = TicketEvent(
+        match_title="RCB vs CSK", date="2026-05-10",
+        venue="Chinnaswamy", ticket_url="https://example.com",
+        status="available",
+    )
+    assert len(merge_events([event], [])) == 1
+    assert len(merge_events([], [event])) == 1
