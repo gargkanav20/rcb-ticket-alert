@@ -121,3 +121,26 @@ async def test_notify_all_partial_failure():
     assert results["telegram"] is True
     assert results["discord"] is False
     assert results["email"] is True
+
+
+@pytest.mark.asyncio
+async def test_notify_all_only_discord_configured():
+    event = _make_event()
+    with respx.mock:
+        respx.post("https://discord.com/api/webhooks/t/h").mock(
+            return_value=httpx.Response(204)
+        )
+        results = await notify_all(
+            event,
+            discord_webhook="https://discord.com/api/webhooks/t/h",
+        )
+    assert results == {"discord": True}
+    assert "telegram" not in results
+    assert "email" not in results
+
+
+@pytest.mark.asyncio
+async def test_notify_all_no_channels_configured():
+    event = _make_event()
+    results = await notify_all(event)
+    assert results == {}

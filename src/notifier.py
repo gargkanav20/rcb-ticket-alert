@@ -123,16 +123,40 @@ async def send_email(
 
 async def notify_all(
     event_or_msg: TicketEvent | str,
-    telegram_token: str,
-    telegram_chat_id: str,
-    discord_webhook: str,
-    email_sender: str,
-    email_password: str,
-    email_recipient: str,
+    telegram_token: str | None = None,
+    telegram_chat_id: str | None = None,
+    discord_webhook: str | None = None,
+    email_sender: str | None = None,
+    email_password: str | None = None,
+    email_recipient: str | None = None,
 ) -> dict[str, bool]:
-    tg, dc, em = await asyncio.gather(
-        send_telegram(event_or_msg, telegram_token, telegram_chat_id),
-        send_discord(event_or_msg, discord_webhook),
-        send_email(event_or_msg, email_sender, email_password, email_recipient),
-    )
-    return {"telegram": tg, "discord": dc, "email": em}
+    results: dict[str, bool] = {}
+    tasks: list[tuple[str, asyncio.Task]] = []
+
+    if telegram_token and telegram_chat_id:
+        tasks.append(("telegram", asyncio.ensure_future(
+            send_telegram(event_or_msg, telegram_token, telegram_chat_id))))
+    else:
+        logger.info("Telegram not configured, skipping")
+
+    if discord_webhook:
+        tasks.append(("discord", asyncio.ensure_future(
+            send_discord(event_or_msg, discord_webhook))))
+    else:
+        logger.info("Discord not configured, skipping")
+
+    if email_sender and email_password and email_recipient:
+        tasks.append(("email", asyncio.ensure_future(
+            send_email(event_or_msg, email_sender, email_password, email_recipient))))
+    else:
+        logger.info("Email not configured, skipping")
+
+    if not tasks:
+        logger.warning("No notification channels configured!")
+        return results
+
+    awaited = await asyncio.gather(*(t for _, t in tasks))
+    for (name, _), result in zip(tasks, awaited):
+        results[name] = result
+
+    return results

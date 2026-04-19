@@ -24,7 +24,7 @@ logger = logging.getLogger("rcb-notifier")
 
 
 def get_config() -> dict:
-    required = {
+    config = {
         "TELEGRAM_BOT_TOKEN": os.getenv("TELEGRAM_BOT_TOKEN"),
         "TELEGRAM_CHAT_ID": os.getenv("TELEGRAM_CHAT_ID"),
         "DISCORD_WEBHOOK_URL": os.getenv("DISCORD_WEBHOOK_URL"),
@@ -32,11 +32,28 @@ def get_config() -> dict:
         "EMAIL_APP_PASSWORD": os.getenv("EMAIL_APP_PASSWORD"),
         "EMAIL_RECIPIENT": os.getenv("EMAIL_RECIPIENT"),
     }
-    missing = [k for k, v in required.items() if not v]
-    if missing:
-        logger.error(f"Missing required env vars: {', '.join(missing)}")
+
+    telegram_ok = config["TELEGRAM_BOT_TOKEN"] and config["TELEGRAM_CHAT_ID"]
+    discord_ok = bool(config["DISCORD_WEBHOOK_URL"])
+    email_ok = config["EMAIL_SENDER"] and config["EMAIL_APP_PASSWORD"] and config["EMAIL_RECIPIENT"]
+
+    channels = []
+    if telegram_ok:
+        channels.append("Telegram")
+    if discord_ok:
+        channels.append("Discord")
+    if email_ok:
+        channels.append("Email")
+
+    if not channels:
+        logger.error("No notification channels configured. Set env vars for at least one of: "
+                      "Telegram (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID), "
+                      "Discord (DISCORD_WEBHOOK_URL), or "
+                      "Email (EMAIL_SENDER + EMAIL_APP_PASSWORD + EMAIL_RECIPIENT)")
         sys.exit(1)
-    return required
+
+    logger.info(f"Active notification channels: {', '.join(channels)}")
+    return config
 
 
 async def poll_once(state: StateManager, config: dict, dry_run: bool = False):
