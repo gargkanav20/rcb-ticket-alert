@@ -2,13 +2,13 @@ name: Check RCB Tickets
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0 */5 * * *'
   workflow_dispatch: {}
 
 jobs:
   check-tickets:
     runs-on: ubuntu-latest
-    timeout-minutes: 65
+    timeout-minutes: 310
 
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +43,7 @@ jobs:
           EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
           EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
           STATE_FILE_PATH: state.json
-        run: python -m src.main --duration 58 --interval 120
+        run: python -m src.main --duration 299 --interval 120
 
       - name: Save ticket state
         if: always()
